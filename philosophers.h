@@ -46,7 +46,7 @@ typedef struct s_philosopher
 
 typedef struct s_global
 {
-	t_philosopher	**philosopher;
+	t_philosopher	**philosophers;
 	int				num_philosophers;
 	int				time_to_die;
 	int				time_to_eat;
@@ -57,8 +57,7 @@ typedef struct s_global
 }	t_global;
 
 void			init_structs(t_global *global);
-t_philosopher	*init_philo(t_global *global, t_philosopher *new_philosopher,
-					int i);
+t_philosopher	*init_philo(t_global *global, int i);
 int				init_mutex(t_global	*global);
 int				errormsg(char *str);
 void			close_all(t_global *global);

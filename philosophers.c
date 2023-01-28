@@ -41,33 +41,27 @@ int	main(int argc, char **argv)
 
 void	init_structs(t_global *global)
 {
-	pthread_mutex_t	**forks_array;
-	t_philosopher	**philosophers;
-	t_philosopher	*new_philosopher;
-	pthread_mutex_t	*new_fork;
 	int				i;
 
-	forks_array = (pthread_mutex_t **) malloc(sizeof(pthread_mutex_t *)
+	global->forks = (pthread_mutex_t **) malloc(sizeof(pthread_mutex_t *)
 			* global->num_philosophers);
 	i = -1;
 	printf("%ld\n", sizeof(pthread_mutex_t));
 	while (++i < global->num_philosophers)
-	{
-		new_fork = malloc(sizeof(pthread_mutex_t));
-		forks_array[i] = new_fork;
-		printf("%p\n", forks_array[i]);
-	}
-	global->forks = forks_array;
-	philosophers = malloc(sizeof(t_philosopher *) * global->num_philosophers);
+		global->forks[i] = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+	global->philosophers = malloc(sizeof(t_philosopher *) * global->num_philosophers);
 	i = -1;
 	while (++i < global->num_philosophers)
-		philosophers[i] = init_philo(global, philosophers[i], i);
-	global->philosopher = philosophers;
+		global->philosophers[i] = init_philo(global, i);
+	i = -1;
+	while(++i < global->num_philosophers)
+		pthread_join(global->philosopher[i]->thread_id, NULL);
 }
 
-t_philosopher	*init_philo(t_global *global, t_philosopher *philosopher,
-				int i)
+t_philosopher	*init_philo(t_global *global, int i)
 {
+	t_philosopher *philosopher;
+
 	philosopher = malloc(sizeof(t_philosopher));
 	philosopher->id = i + 1;
 	philosopher->state = THINKING;
@@ -78,6 +72,7 @@ t_philosopher	*init_philo(t_global *global, t_philosopher *philosopher,
 		philosopher->right_fork = global->forks[0];
 	else
 		philosopher->right_fork = global->forks[i + 1];
+	pthread_create(&philosopher->thread_id, NULL, philosopher_behaviour, &global);
 	return (philosopher);
 }
 
@@ -87,7 +82,7 @@ int	init_mutex(t_global	*global)
 	pthread_mutex_t	*mutex;
 
 	i = -1;
-	while (++i <= global->num_philosophers)
+	while (++i < global->num_philosophers)
 	{
 		mutex = global->forks[i];
 		if (pthread_mutex_init(mutex, NULL))
@@ -109,8 +104,8 @@ void	close_all(t_global *global)
 	i = -1;
 	while (++i < global->num_philosophers)
 	{
-		pthread_join(global->philosopher[i]->thread_id, NULL);
-		free(global->philosopher[i]);
+		pthread_join(global->philosophers[i]->thread_id, NULL);
+		free(global->philosophers[i]);
 	}
 	i = -1;
 	while (++i < global->num_philosophers)
@@ -119,6 +114,11 @@ void	close_all(t_global *global)
 		printf("Close Forks %d\n", i + 1);
 		free(global->forks[i]);
 	}
-	free(global->philosopher);
+	free(global->philosophers);
 	free(global->forks);
+}
+
+void	*philosopher_behaviour(void *global)
+{
+
 }
