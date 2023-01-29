@@ -19,6 +19,7 @@
 # include <unistd.h>
 # include <time.h>
 # include <sys/time.h>
+# include <stdbool.h>
 
 # define K_NORMAL  "\x1B[0m"
 # define K_RED  "\x1B[31m"
@@ -29,19 +30,26 @@
 # define K_CYAN  "\x1B[36m"
 # define K_WHITE  "\x1B[37m"
 
-# define THINKING 1
-# define EATING 2
-# define SLEEPING 3
+typedef struct s_global	t_global;
+
+enum	e_PHILO_STATE
+{
+	PHILO_STATE_THINKING,
+	PHILO_STATE_EATING,
+	PHILO_STATE_SLEEPING,
+	PHILO_STATE_DEAD
+};
 
 typedef struct s_philosopher
 {
-	int				id;
-	int				state;
-	int				num_meals;
-	long			last_meal_time;
-	pthread_t		thread_id;
-	pthread_mutex_t	*left_fork;
-	pthread_mutex_t	*right_fork;
+	int					id;
+	int					num_meals;
+	long				last_meal_time;
+	enum e_PHILO_STATE	state;
+	pthread_t			thread_id;
+	pthread_mutex_t		*left_fork;
+	pthread_mutex_t		*right_fork;
+	t_global			*global;
 }	t_philosopher;
 
 typedef struct s_global
@@ -52,14 +60,19 @@ typedef struct s_global
 	int				time_to_eat;
 	int				time_to_sleep;
 	int				num_meals_each;
+	bool			philo_dead;
+	pthread_t		monitor;
 	pthread_mutex_t	**forks;
 	struct timeval	start_time;
 }	t_global;
 
-void			init_structs(t_global *global);
 t_philosopher	*init_philo(t_global *global, int i);
-int				init_mutex(t_global	*global);
+int				init_structs(t_global *global);
 int				errormsg(char *str);
 void			close_all(t_global *global);
+void			*philosopher_behaviour(void *philosopher);
+void			*monitor(void *args);
+long			get_elapsed_time(t_global *global);
+void			init_global(t_global *global, int argc, char **argv);
 
 #endif

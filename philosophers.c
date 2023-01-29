@@ -14,8 +14,7 @@
 
 int	main(int argc, char **argv)
 {
-	t_global		global;
-	int				i;
+	t_global	global;
 
 	if (argc < 5 || argc > 6)
 	{
@@ -24,38 +23,54 @@ int	main(int argc, char **argv)
 		printf("ttdie tteat ttsleep [num_of_eat]\n");
 		return (1);
 	}
-	i = atoi(argv[1]);
-	global.num_philosophers = i;
-	global.time_to_die = atoi(argv[2]);
-	global.time_to_eat = atoi(argv[3]);
-	global.time_to_sleep = atoi(argv[4]);
-	global.num_meals_each = 0;
-	if (argc == 6)
-		global.num_meals_each = atoi(argv[5]);
+	init_global(&global, argc, argv);
 	gettimeofday(&global.start_time, NULL);
 	init_structs(&global);
-	if (init_mutex(&global))
-		return (errormsg("Error with mutex initiation."));
-	close_all(&global);
+	while (1)
+	{
+		if (global.philo_dead)
+			close_all(&global);
+	}
 }
 
-void	init_structs(t_global *global)
+void	init_global(t_global *global, int argc, char **argv)
+{
+	int	i;
+
+	i = atoi(argv[1]);
+	global->num_philosophers = i;
+	global->time_to_die = atoi(argv[2]);
+	global->time_to_eat = atoi(argv[3]);
+	global->time_to_sleep = atoi(argv[4]);
+	global->num_meals_each = 0;
+	global->philo_dead = false;
+	if (argc == 6)
+		global->num_meals_each = atoi(argv[5]);
+}
+
+int	init_structs(t_global *global)
 {
 	int				i;
 
 	global->forks = (pthread_mutex_t **) malloc(sizeof(pthread_mutex_t *)
 			* global->num_philosophers);
 	i = -1;
-	printf("%ld\n", sizeof(pthread_mutex_t));
 	while (++i < global->num_philosophers)
+	{
 		global->forks[i] = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-	global->philosophers = malloc(sizeof(t_philosopher *) * global->num_philosophers);
+		if (pthread_mutex_init(global->forks[i], NULL))
+			return (errormsg("Error with mutex initiation."));
+	}
+	global->philosophers = calloc(global->num_philosophers, sizeof(t_philosopher *));
+	pthread_create(&global->monitor, NULL, monitor, global);
 	i = -1;
 	while (++i < global->num_philosophers)
 		global->philosophers[i] = init_philo(global, i);
+	pthread_join(global->monitor, NULL);
 	i = -1;
 	while(++i < global->num_philosophers)
-		pthread_join(global->philosopher[i]->thread_id, NULL);
+		pthread_join(global->philosophers[i]->thread_id, NULL);
+	return (0);
 }
 
 t_philosopher	*init_philo(t_global *global, int i)
@@ -64,36 +79,19 @@ t_philosopher	*init_philo(t_global *global, int i)
 
 	philosopher = malloc(sizeof(t_philosopher));
 	philosopher->id = i + 1;
-	philosopher->state = THINKING;
+	philosopher->state = PHILO_STATE_THINKING;
 	philosopher->last_meal_time = 0;
 	philosopher->num_meals = 0;
+	philosopher->global = global;
 	philosopher->left_fork = global->forks[i];
-	if ((i + 1) == global->num_philosophers)
-		philosopher->right_fork = global->forks[0];
-	else
-		philosopher->right_fork = global->forks[i + 1];
-	pthread_create(&philosopher->thread_id, NULL, philosopher_behaviour, &global);
+	philosopher->right_fork = global->forks[(i + 1) % global->num_philosophers];
+	pthread_create(&philosopher->thread_id, NULL, philosopher_behaviour, philosopher);
 	return (philosopher);
-}
-
-int	init_mutex(t_global	*global)
-{
-	int				i;
-	pthread_mutex_t	*mutex;
-
-	i = -1;
-	while (++i < global->num_philosophers)
-	{
-		mutex = global->forks[i];
-		if (pthread_mutex_init(mutex, NULL))
-			return (1);
-	}
-	return (0);
 }
 
 int	errormsg(char *str)
 {
-	printf("\x1B[31;1;4m" " Error\n    %s\n" "\x1B[0m", str);
+	printf("\x1B[31;1;4m" " Error\v %s\n" "\x1B[0m", str);
 	return (1);
 }
 
@@ -101,10 +99,11 @@ void	close_all(t_global *global)
 {
 	int	i;
 
+	global->philo_dead = true;
 	i = -1;
 	while (++i < global->num_philosophers)
 	{
-		pthread_join(global->philosophers[i]->thread_id, NULL);
+		pthread_cancel(global->philosophers[i]->thread_id);
 		free(global->philosophers[i]);
 	}
 	i = -1;
@@ -118,7 +117,65 @@ void	close_all(t_global *global)
 	free(global->forks);
 }
 
-void	*philosopher_behaviour(void *global)
+void	*philosopher_behaviour(void *philosopher)
 {
+	t_philosopher	*self;
 
+	self = (t_philosopher *) philosopher;
+	self->last_meal_time = get_elapsed_time(self->global);
+	if (self->state == PHILO_STATE_THINKING)
+	{
+		pthread_mutex_lock(self->left_fork);
+		pthread_mutex_lock(self->right_fork);
+
+	}
+	pthread_mutex_unlock(self->left_fork);
+	pthread_mutex_unlock(self->right_fork);
 }
+
+void	*monitor(void *args)
+{
+	t_global		*global;
+	int				i;
+	t_philosopher	*current_philo;
+	long			elapsed_time;
+
+	global = (t_global *)args;
+	while (!global->philo_dead)
+	{
+		i = -1;
+		while (++i < global->num_philosophers && !global->philo_dead)
+		{
+			elapsed_time = get_elapsed_time(global);
+			current_philo = global->philosophers[i];
+			if (!current_philo)
+				continue;
+			if ((elapsed_time - current_philo->last_meal_time) >= global->time_to_die)
+			{
+				global->philo_dead = true;
+				printf("[%ld] Philosopher %d has died!\n", elapsed_time, current_philo->id);
+			}
+		}
+	}
+}
+
+long	get_elapsed_time(t_global *global)
+{
+	struct timeval	now;
+	long	elapsed_time;
+
+	gettimeofday(&now, NULL);
+	elapsed_time = (now.tv_sec - global->start_time.tv_sec) * 1000;
+    elapsed_time += (now.tv_usec - global->start_time.tv_usec) / 1000;
+	return (elapsed_time);
+}
+/*
+check time-to-die against time-since-last-eaten
+attempt to pick up forks
+if unable to pick up forks, put forks down, wait 5ms and attempt it again.
+eat for time-to-eat
+update time-since-last-eaten
+put down forks
+sleep for time-to-sleep
+Main thread checking time-to-die against time-since-last-eaten every ms for all Philosophers.
+*/
