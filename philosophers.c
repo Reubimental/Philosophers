@@ -102,10 +102,7 @@ void	close_all(t_global *global)
 	global->philo_dead = true;
 	i = -1;
 	while (++i < global->num_philosophers)
-	{
-		pthread_cancel(global->philosophers[i]->thread_id);
 		free(global->philosophers[i]);
-	}
 	i = -1;
 	while (++i < global->num_philosophers)
 	{
@@ -121,7 +118,7 @@ void	*philosopher_behaviour(void *philosopher)
 {
 	t_philosopher	*self;
 
-	self = (t_philosopher *) philosopher;
+	self = (t_philosopher *)philosopher;
 	self->last_meal_time = get_elapsed_time(self->global);
 	if (self->state == PHILO_STATE_THINKING)
 	{
