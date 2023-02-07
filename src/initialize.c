@@ -52,7 +52,7 @@ int	init_structs(t_global *global)
 	i = -1;
 	while (++i < global->num_philosophers)
 	{
-		printf("Philo %d joining\n", global->philosophers->id);
+		printf("Philo %d joining\n", global->philosophers[i]->id);
 		pthread_join(global->philosophers[i]->thread_id, NULL);
 		printf("Philo %d joined\n", i + 1);
 	}
