@@ -30,6 +30,14 @@
 # define K_MAGENTA  "\x1B[35m"
 # define K_CYAN  "\x1B[36m"
 # define K_WHITE  "\x1B[37m"
+# define DEAD	0
+# define EATING	1
+# define SLEEPING	2
+# define THINKING	3
+# define LEFT_FORK	4
+# define RIGHT_FORK	5
+# define PICKUP	6
+# define PUTDOWN	7
 
 typedef struct s_global	t_global;
 
@@ -57,7 +65,7 @@ typedef struct s_philosopher
 typedef struct s_global
 {
 	t_philosopher	**philosophers;
-	int				num_philosophers;
+	int				num_philo;
 	int				time_to_die;
 	int				time_to_eat;
 	int				time_to_sleep;
@@ -66,6 +74,7 @@ typedef struct s_global
 	int				philo_dead;
 	pthread_t		monitor;
 	pthread_mutex_t	**forks;
+	int				start;
 	struct timeval	now;
 	struct timeval	start_time;
 }	t_global;
@@ -75,13 +84,17 @@ int				init_structs(t_global *global);
 void			close_all(t_global *global);
 void			*philosopher_behaviour(void *philosopher);
 void			*monitor(void *args);
-long			get_elapsed_time(t_global *global);
+long			get_time(t_global *global);
 void			init_global(t_global *global, int argc, char **argv);
-void			handle_thinking(t_philosopher *self);
+void			handle_left_thinking(t_philosopher *self);
+void			handle_right_thinking(t_philosopher *self);
 void			handle_eating(t_philosopher *self);
 void			handle_sleeping(t_philosopher *self);
-void			handle_no_fork(t_philosopher *self);
 void			sleep_interruptable(t_global *global, int time_to_activity);
 long long		timestamp(void);
+void			ft_bzero(void *str, size_t n);
+void			*_calloc(size_t n, size_t size);
+void			print_behaviour(long long time, int philo, int state,
+					int action);
 
 #endif

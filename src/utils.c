@@ -12,7 +12,7 @@
 
 #include "../include/philosophers.h"
 
-long	get_elapsed_time(t_global *global)
+long	get_time(t_global *global)
 {
 	long	elapsed_time;
 
@@ -30,56 +30,6 @@ long long	timestamp(void)
 	return ((timestamp.tv_sec * 1000) + (timestamp.tv_usec / 1000));
 }
 
-void	*monitor(void *args)
-{
-	t_global		*global;
-	int				i;
-	t_philosopher	*current_philo;
-
-	global = (t_global *)args;
-	while (!global->philo_dead && global->meals_finished != 0)
-	{
-		i = -1;
-		while (++i < global->num_philosophers && !global->philo_dead)
-		{
-			current_philo = global->philosophers[i];
-			if (!current_philo)
-				continue ;
-			if ((get_elapsed_time(global) - current_philo->last_meal_time)
-				>= global->time_to_die)
-			{
-				global->philo_dead = current_philo->id;
-				printf("---[%ld] Philosopher %d has died!\n",
-					get_elapsed_time(global), global->philo_dead);
-				break ;
-			}
-		}
-	}
-	printf("I GOT HERE\n");
-	return (NULL);
-}
-
-void	close_all(t_global *global)
-{
-	int	i;
-
-	printf("Closing\n");
-	i = -1;
-	if (global->philo_dead)
-		printf("[%ld] Philosopher %d has died!\n", get_elapsed_time(global),
-			global->philo_dead);
-	while (++i < global->num_philosophers)
-		free(global->philosophers[i]);
-	i = -1;
-	while (++i < global->num_philosophers)
-	{
-		pthread_mutex_destroy(global->forks[i]);
-		free(global->forks[i]);
-	}
-	free(global->philosophers);
-	free(global->forks);
-}
-
 void	sleep_interruptable(t_global *global, int time_to_activity)
 {
 	long long	time_stamp;
@@ -92,4 +42,28 @@ void	sleep_interruptable(t_global *global, int time_to_activity)
 			break ;
 		usleep(50);
 	}
+}
+
+void	ft_bzero(void *str, size_t n)
+{
+	unsigned char	*ptr;
+
+	ptr = (unsigned char *)str;
+	while (n--)
+		*ptr++ = 0;
+}
+
+void	*_calloc(size_t n, size_t size)
+{
+	void	*ptr;
+
+	if (!n || !size)
+	{
+		size = 1;
+		n = size;
+	}
+	ptr = malloc(n * size);
+	if (ptr)
+		ft_bzero(ptr, n * size);
+	return (ptr);
 }

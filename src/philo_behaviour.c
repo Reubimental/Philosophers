@@ -12,28 +12,35 @@
 
 #include "../include/philosophers.h"
 
-void	handle_thinking(t_philosopher *self)
+void	handle_left_thinking(t_philosopher *self)
 {
-	if (self->global->philo_dead)
-		return ;
-	if (pthread_mutex_lock(self->left_fork) == 0)
+	if (!pthread_mutex_lock(self->left_fork))
+		print_behaviour(get_time(self->global), self->id, LEFT_FORK, PICKUP);
+	if (!pthread_mutex_lock(self->right_fork))
 	{
-		printf("[%ld] Philosopher %d has taken Left Fork.\n",
-			get_elapsed_time(self->global), self->id);
 		if (self->global->philo_dead)
 			return ;
-		if (pthread_mutex_lock(self->right_fork) == 0)
-		{
-			self->last_meal_time = get_elapsed_time(self->global);
-			printf("[%ld] Philosopher %d has taken Right Fork.\n",
-				get_elapsed_time(self->global), self->id);
-			printf("[%ld] Philosopher %d is Eating.\n",
-				get_elapsed_time(self->global), self->id);
-			self->state = PHILO_STATE_EATING;
+		self->last_meal_time = get_time(self->global);
+		print_behaviour(get_time(self->global), self->id, RIGHT_FORK, PICKUP);
+		print_behaviour(get_time(self->global), self->id, EATING, PICKUP);
+		self->state = PHILO_STATE_EATING;
+	}
+}
+
+void	handle_right_thinking(t_philosopher *self)
+{
+	if (!pthread_mutex_lock(self->right_fork))
+		print_behaviour(get_time(self->global), self->id, RIGHT_FORK, PICKUP);
+	if (self->global->philo_dead)
+		return ;
+	if (!pthread_mutex_lock(self->left_fork))
+	{
+		if (self->global->philo_dead)
 			return ;
-		}
-		else
-			handle_no_fork(self);
+		self->last_meal_time = get_time(self->global);
+		self->state = PHILO_STATE_EATING;
+		print_behaviour(get_time(self->global), self->id, LEFT_FORK, PICKUP);
+		print_behaviour(get_time(self->global), self->id, EATING, PICKUP);
 	}
 }
 
@@ -44,17 +51,13 @@ void	handle_eating(t_philosopher *self)
 		return ;
 	if (!pthread_mutex_unlock(self->left_fork)
 		&& !pthread_mutex_unlock(self->right_fork))
-	{
-		printf("[%ld] Philosopher %d has put down both forks.\n",
-			get_elapsed_time(self->global), self->id);
-	}
+		print_behaviour(get_time(self->global), self->id, LEFT_FORK, PUTDOWN);
 	self->num_meals++;
 	if (self->num_meals == self->global->num_meals_each)
 		self->global->meals_finished--;
 	self->state = PHILO_STATE_SLEEPING;
-	self->time_sleep_start = get_elapsed_time(self->global);
-	printf("[%ld] Philosopher %d is Sleeping.\n",
-		get_elapsed_time(self->global), self->id);
+	self->time_sleep_start = get_time(self->global);
+	print_behaviour(get_time(self->global), self->id, SLEEPING, PICKUP);
 }
 
 void	handle_sleeping(t_philosopher *self)
@@ -63,21 +66,7 @@ void	handle_sleeping(t_philosopher *self)
 	if (self->global->philo_dead)
 		return ;
 	self->state = PHILO_STATE_THINKING;
-	printf("[%ld] Philosopher %d is Thinking.\n",
-		get_elapsed_time(self->global), self->id);
-}
-
-void	handle_no_fork(t_philosopher *self)
-{
-	if (self->global->philo_dead)
-		return ;
-	printf("[%ld] Philosopher %d has no Right Fork available.\n",
-		get_elapsed_time(self->global), self->id);
-	if (!pthread_mutex_unlock(self->left_fork))
-	{
-		printf("[%ld] Philosopher %d has put down Left Fork.\n",
-			get_elapsed_time(self->global), self->id);
-	}
+	print_behaviour(get_time(self->global), self->id, THINKING, PICKUP);
 }
 
 void	*philosopher_behaviour(void *philosopher)
@@ -85,18 +74,19 @@ void	*philosopher_behaviour(void *philosopher)
 	t_philosopher	*self;
 
 	self = (t_philosopher *)philosopher;
-	printf("[%ld] Philosopher %d is Thinking.\n",
-		get_elapsed_time(self->global), self->id);
+	while (!self->global->start)
+		;
+	print_behaviour(get_time(self->global), self->id, THINKING, PICKUP);
 	while (!self->global->philo_dead && self->global->meals_finished != 0)
 	{
-		if (self->state == PHILO_STATE_THINKING && !self->global->philo_dead)
-			handle_thinking(self);
-		if (self->state == PHILO_STATE_EATING && !self->global->philo_dead)
+		if (self->state == PHILO_STATE_THINKING && self->id % 2 == 0)
+			handle_left_thinking(self);
+		else if (self->state == PHILO_STATE_THINKING && self->id % 2 != 0)
+			handle_right_thinking(self);
+		else if (self->state == PHILO_STATE_EATING)
 			handle_eating(self);
-		if (self->state == PHILO_STATE_SLEEPING && !self->global->philo_dead)
+		else if (self->state == PHILO_STATE_SLEEPING)
 			handle_sleeping(self);
-		if (self->global->philo_dead)
-			break ;
 	}
 	return (NULL);
 }
